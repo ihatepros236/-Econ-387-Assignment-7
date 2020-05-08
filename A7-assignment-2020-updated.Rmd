@@ -1,0 +1,120 @@
+---
+title: "Assignment 7"
+author: "Student name, SID"
+output:
+  html_document: default
+  html_notebook: default
+  pdf_document: default
+---
+
+Install the following packages: `tidyverse`, `maps`, `ggmap`, `mapproj`, `cancensus`, and `sf`
+```{r}
+
+library(tidyverse)
+library(rmarkdown)
+library(knitr)
+library(ggmap)
+library(mapproj)
+library(cancensus)
+library(sf)
+```
+# Question 1
+
+Map median household income for the vancouver census sub division by census tract area using the `cancensus` package as we did in lecture 7 but improve the look of your map as done here for Toronto with titles, labels, and with "all the trimmings" (something that looks like the last map before the "Interactive maps with leaflet" section of the example) (https://cran.r-project.org/web/packages/cancensus/vignettes/Making_maps_with_cancensus.html). 
+```{r}
+
+
+# retrieve sf dataframe
+options(cancensus.api_key = "CensusMapper_f8a7e66b1263cfd8596e73babf6cc6b1")
+
+
+
+van_csd_data <- get_census(dataset='CA16', regions=list(CMA=c("59933")), vectors=c("median_hh_income"="v_CA16_2397"), level='CSD', quiet = TRUE, geo_format = 'sf', labels='short')
+
+ggplot(van_csd_data) + geom_sf(aes(fill = median_hh_income), colour = "grey") +
+  scale_fill_viridis_c("Median HH Income", labels = scales::dollar) + theme_minimal() +
+  theme(panel.grid = element_blank(),
+        axis.text = element_blank(),
+        axis.ticks = element_blank()) + 
+  coord_sf(datum=NA) +
+  labs(title = "Median Household Income", subtitle = "Vancouver Census Subdivisions")
+```
+ 
+
+# Question 2
+
+Choose another variable (not income or unoccupied dwellings) in cancensus and create a panel of 3 or 4 maps showing change over time following the example for unoccupied dwellings here: (https://doodles.mountainmath.ca/blog/2020/01/26/unoccupied-dwellings-data/).You can learn from the example in the blog, but this uses functions we are not yet familiar. If you use new functions (such as `lapply`) make sure to clearly explain what you are doing and why you are using those functions. Note that many variables may change codes over years. I found the following page helfpufl to find the variable codes for information that you could collect over the years: (https://censusmapper.ca/api/). 
+
+Following your visualizaton over the census years, write a brief paragraph describing the spatial and temporal variation you observe and why you chose to look at this particular variable.  **This should be 100% original and you should not have the same plots or description as another student**
+
+## Solution 
+```{r, information=}
+
+
+#I couldn't use the methodology as described in example so I went and selected different years from 2001 to 2016, https://censusmapper.ca/api/ and plotted 4 different graphs 
+
+
+# Returns data and geography as an sf-class data frame
+options(cancensus.api_key = "CensusMapper_f8a7e66b1263cfd8596e73babf6cc6b1")
+fetch_data<-function(y)
+{
+census_data <- get_census(dataset='CA16', regions=list(CMA="59933"),
+                          vectors=("Population"=c(y)),
+                          level='CSD', use_cache = FALSE, geo_format = 'sf')
+return(census_data)
+}
+
+plot<-function(x){
+plot1<-ggplot(x) + geom_sf(aes(fill = Population)) +
+  scale_fill_viridis_c("Population") + theme_minimal() +
+  theme(panel.grid = element_blank(),
+        axis.text = element_blank(),
+        axis.ticks = element_blank()) + 
+  coord_sf(datum=NA) +
+  labs(title = "Population", subtitle = "Vancouver Population Subdivisions")
+return (plot1)
+}
+pop2001<-fetch_data("v_CA01_2")
+pop2006<-fetch_data("v_CA06_1")
+pop2016<-fetch_data("v_CA16_401")
+pop2011<-fetch_data("v_CA16_402")
+
+plot(pop2001)
+plot(pop2006)
+plot(pop2011)
+plot(pop2016)
+
+#I have plotted 4 graphs from year 2001 to 2016 using census data, from the graphs it seems that population growth has been similar across vancouver and population density have remained similar from year 2001-2016
+```
+# Question 3
+
+For this question, let's visualize crime by neighborhood in vancouver. 
+
+- Follow the slides in Lecture 7 to load the Vancouver neighbourhood shape files with the names of each neighborhood overlayed onto the map. 
+- Download the crime data file you used for A5 (https://geodash.vpd.ca/opendata/). Create a variable that is equal to one if the reported incident involves an where an individual is stealing or trying to steal something (break and enter, robbery, theft of vehicle, theft from vehcicle, theft of bicycle, other theft) called "property_crimes" and count the **total number of "property_crime" for each neighborhood in 2015**. Your data should have 22 observations, one for each neighborhood and two variables: `neighborhood` and `property_crimes`. 
+- Read in the 2016 local area profile csv provided on canvas and reshape ( `pivot_longer` the data) so that each observation is a neighborhood. This information corresponds to 2015 conditions in each neighborhood. The variables included in this dataset include: `population` (total population of neighborhood in 2015), `avg_age` (average age of residents in neighborhood), `avg_hh_size` (average number of individuals in each household in neighborhood), `pct_low_income` (percent of neighborhood residents considered "low income"), `unemp_rate` (unemployment rate of residents in neighborhood), `pct_inc_gov_transfer` (percent of total income that comes from government transfer programs in neighborhood). 
+- Combine the three datasets above so that you have information on geometry (and centroid locations to overlay names), the number of property crimes, and the six 2016 census characteristics in `CensusLocalAreaProfiles2016.csv`. **Note that you will have to pay attention to whether the common neighborhood name variable matches across the datasets. First, you'll want to create a variable with the same name across all three datasets that contains the neighborhood name. You will have to modify the following to get to match: In the shapefile data the downtown neighborhood is called "Downtown" but it is called "Central Business District" in the other two datasets; In the crime data a neighborhood is called "Arbutus Ridge" but it is called "Arbutus-Ridge" in the other two datasets. You'll have to make sure all three have consistent neighborhood names before joining together.**
+-  Calculate a variable `property_crime_rate` that captures the number of property crimes per 100 residents for each neighborhood (so divide the total property crimes by the neighborhood population and multiply by 100).  
+- Create a map showing differences in your property crime rate variable in 2015 across neighborhoods and write a few sentences commenting on how property crime rates vary across neighborhoods.  Improve the look of your map using options for colors, background, titles, etc. Play around with the options and choose the map that looks best to you! 
+- Choose one of the local area census variables to visualize across the different neigbhorhoods that you think may be related to crime and make another map. Write a brief paragraph as to how you expect the measure to relate to crime and comment / compare the spatial distribution of property crime rates and the variable you choose to visualize. 
+
+**Your description and plots for these final two steps should be your own work and should not be similar to those of other students**
+
+## Solution
+
+
+# Question 4
+
+Return to BC's data catalogue (https://catalogue.data.gov.bc.ca/dataset?res_format=shp&type=Geographic) and create a spatial data visualization using skills / functions / packages above for a dataset of your choice. Note that the link above searches the geographic datasets available that are a `shp` file. There are over 1500 datasets found. Download a shapefile and create a map. Provide the link for the page and a brief description of the data that you choose. Comment on what your map shows and why you find it interesting. Make your map as informative and professional as possible. Try to convey something besides just showing the location. **Be creative. This should be 100% original and you should not use the same data or have the same map as another student**
+
+## Solution
+
+
+
+
+
+
+
+
+
+
